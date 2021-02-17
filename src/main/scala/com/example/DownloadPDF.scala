@@ -9,8 +9,10 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.scaladsl.{Flow, Framing, Sink, Source}
 import akka.util.ByteString
 
-import scala.concurrent.{Await, ExecutionContext, Future}
+import java.time.LocalDateTime
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success, Try}
 
 object DownloadPDF extends App{
 
@@ -66,4 +68,23 @@ object DownloadPDF extends App{
         response.entity.dataBytes
           .runReduce(_ ++ _).map(_.utf8String)
       }
+
+
+  val pool= Http().superPool[Int]()
+  Source(1 to 1000)
+    .map(i => (HttpRequest(uri = s"http://localhost:8080/pdf?index=$i", method = HttpMethods.GET), i))
+    .via(pool)
+    .mapAsync(2)(asyncOp).runWith(Sink.foreach {
+      case (Success(r), i) => println(s"[${LocalDateTime.now}] $i succeeded")
+      case (Failure(e), i) => println(s"[${LocalDateTime.now}] $i failed: $e")
+    })
+
+  def asyncOp(result: (Try[HttpResponse], Int)): Future[(Try[HttpResponse], Int)] =
+    Future {
+      blocking {
+        Thread.sleep(100) // simulate work
+        result._1.get.discardEntityBytes()
+        result
+      }
+    }
 }

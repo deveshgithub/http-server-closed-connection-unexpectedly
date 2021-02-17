@@ -44,7 +44,7 @@ object StartHttpServer extends App {
     //12670131
 
     val keyerFunction: PartialFunction[RequestContext, Uri] = {
-      case r: RequestContext => r.request.uri
+      case r: RequestContext => r.request.uri.withRawQueryString("")
     }
     val defaultCachingSettings = CachingSettings(context.system)
 
